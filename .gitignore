@@ -1,1 +1,4 @@
 *.bak
+__pycache__/
+pwdmanager_venv/
+.pwdmanager_venv
