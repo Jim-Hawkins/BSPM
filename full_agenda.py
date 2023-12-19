@@ -80,10 +80,10 @@ class Agenda:
         # Table
         self.tree = ttk.Treeview(height = 10, columns=("#0","#1","#2"))
         self.tree.grid(row = 6, column = 0, columnspan = 2)
-        self.tree.heading("#0", text = "Name", anchor = CENTER)
-        self.tree.heading("#1", text = "Telephone", anchor = CENTER)
-        self.tree.heading("#2", text = "Email", anchor = CENTER)
-        self.tree.heading("#3", text = "Description", anchor = CENTER)
+        #self.tree.heading("#0", text = "Name", anchor = CENTER)
+        # self.tree.heading("#1", text = "Telephone", anchor = CENTER)
+        # self.tree.heading("#2", text = "Email", anchor = CENTER)
+        # self.tree.heading("#3", text = "Description", anchor = CENTER)
 
         # Buttons
         ttk.Button(text = "Edit", command = self.edit_contacts).grid(row = 7, column = 0, sticky = W+E)
