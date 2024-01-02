@@ -3,10 +3,12 @@ import base64
 import datetime
 import os
 import sqlite3
-import constants as cte
 
-from tkinter import ttk
-from tkinter import *
+import cryptography.exceptions as crypterrors
+import constants as cte
+import tkinter
+
+from tkinter import CENTER, E, END, W, Button, Entry, Label, LabelFrame, Listbox, StringVar, Toplevel, Variable, ttk
 from crypto import Cryptograpy
 
 #[------Agenda------]
@@ -56,14 +58,14 @@ class Agenda:
         self.name.grid(row = 1, column = 1)
 
         # Telephone input
-        Label(frame, text= 'Telephone:').grid(row = 2,column = 0)
-        self.telephone = Entry(frame)
-        self.telephone.grid(row = 2,column = 1)
+        Label(frame, text= 'Login:').grid(row = 2,column = 0)
+        self.login = Entry(frame)
+        self.login.grid(row = 2,column = 1)
 
         # Email input
-        Label(frame, text= 'Email:').grid(row = 3,column = 0)
-        self.email = Entry(frame)
-        self.email.grid(row = 3,column = 1)
+        Label(frame, text= 'URL:').grid(row = 3,column = 0)
+        self.url = Entry(frame)
+        self.url.grid(row = 3,column = 1)
 
         # Description input
         Label(frame, text= 'Description:').grid(row = 4,column = 0)
@@ -77,17 +79,22 @@ class Agenda:
         self.messsage = Label( text= "", fg = "red")
         self.messsage.grid(row = 3, column = 0, columnspan = 2, sticky = W + E)
 
+
         # Table
         self.tree = ttk.Treeview(height = 10, columns=("#0","#1","#2"))
         self.tree.grid(row = 6, column = 0, columnspan = 2)
-        #self.tree.heading("#0", text = "Name", anchor = CENTER)
-        # self.tree.heading("#1", text = "Telephone", anchor = CENTER)
-        # self.tree.heading("#2", text = "Email", anchor = CENTER)
-        # self.tree.heading("#3", text = "Description", anchor = CENTER)
+        self.tree.heading("#0", text = "Name", anchor = CENTER)
+        self.tree.heading("#1", text = "Description", anchor = CENTER)
+        self.tree.heading("#2", text = "URL", anchor = CENTER)
+        self.tree.heading("#3", text = "Login", anchor = CENTER)
 
         # Buttons
         ttk.Button(text = "Edit", command = self.edit_contacts).grid(row = 7, column = 0, sticky = W+E)
         ttk.Button(text = "Delete", command = self.delete_contact).grid(row = 7, column = 1, sticky = W+E)
+
+        
+        self.dataList = Listbox(self.wind, listvariable=Variable(value=["hola","que","tal"]), height=5)
+        self.dataList.grid(row=8, column=0, columnspan=2)
         
         #[--------On open--------]
 
@@ -113,14 +120,14 @@ class Agenda:
         """
         Add a contact to the database
         """
-        if self.validation(self.name.get(), self.telephone.get(), self.email.get(), self.description.get()):
+        if self.validation(self.name.get(), self.description.get(), self.login.get(), self.url.get()):
             query = cte.QUERY_INSERT
-            parameters = (self.name.get(), self.telephone.get(), self.email.get(), self.description.get())
+            parameters = (self.name.get(), self.description.get(), self.url.get(), self.login.get())
             self.run_query(query, parameters)
             self.messsage["text"] = "Contact {} added successfully".format(self.name.get())
             self.name.delete(0, END)
-            self.telephone.delete(0, END)
-            self.email.delete(0, END)
+            self.login.delete(0, END)
+            self.url.delete(0, END)
             self.description.delete(0, END)
         else:
             self.messsage["text"] = cte.ERR_MISSING_PARAMS
@@ -130,35 +137,34 @@ class Agenda:
         """
         Delete a contact form the database
         """
-        self.messsage["text"] = ""
-        try:
-            self.tree.item(self.tree.selection())["text"][0]
-        except IndexError as error:
+
+        name = self.tree.item(self.tree.selection())["text"]
+
+        if name == '':
             self.messsage["text"] = cte.ERR_REC_NOT_SELECTED
             return
-        self.messsage["text"] = ""
-        name = self.tree.item(self.tree.selection())["text"]
-        query = cte.QUERY_DELETE
-        self.run_query(query, (name,))
+        
+        self.run_query(cte.QUERY_DELETE, (name,))
         self.messsage["text"] = " Record {} deleted successfully".format(name)
         self.get_contacts()
 
     def edit_contacts(self):
+
+        # AVERIGUAR CÓMO TOMAR ROW ID PARA QUE UPDATE PUEDA FUNCIONAR
         """
         Edit a contact from the database, establishing new parameters
         """
         self.messsage["text"] = ""
-        try:
-            self.tree.item(self.tree.selection())["text"][0]
-        except IndexError as error:
+        name = self.tree.item(self.tree.selection())["text"]
+
+        if name == '':
             self.messsage["text"] = cte.ERR_REC_NOT_SELECTED
             return
-            
-        self.messsage["text"] = ""
-        name            = self.tree.item(self.tree.selection())["text"]
+
         old_telephone   = self.tree.item(self.tree.selection())["values"][0]
         old_email       = self.tree.item(self.tree.selection())["values"][1]
         old_description = self.tree.item(self.tree.selection())["values"][2]
+        id              = self.tree.item(self.tree.selection())["values"][3]
 
         self.edit_wind = Toplevel()
         self.edit_wind.title = "Edit contact"
@@ -202,25 +208,21 @@ class Agenda:
         Button(self.edit_wind, 
                text = "Update", 
                command = lambda: self.edit_records(new_name.get(), 
-               					  name, 
                					  new_telephone.get(), 
                					  new_email.get(), 
-               					  new_description.get(), 
-               					  old_telephone, 
-               					  old_email, 
-               					  old_description)).grid(row = 4, column = 2,  sticky = W+E)
+               					  new_description.get(),
+                                  id)).grid(row = 4, column = 2,  sticky = W+E)
         
 
-    def edit_records(self, new_name, name, new_telephone, new_email, new_description, old_telephone, old_email, old_description):
+    def edit_records(self, new_name, new_telephone, new_email, new_description, row_id):
         """
         Auxiliar method of edit_contacts that run the query to edit the records of the database
         """
         if self.validation(new_name, new_telephone, new_email, new_description):
-            query = cte.QUERY_UPDATE
-            parameters = (new_name, new_telephone, new_email, new_description, name, old_telephone, old_email, old_description)
-            self.run_query(query, parameters)
+            parameters = (new_name, new_telephone, new_email, new_description, row_id)
+            self.run_query(cte.QUERY_UPDATE, parameters)
             self.edit_wind.destroy()
-            self.messsage["text"] = "Contact {} updated successfully".format(name)
+            self.messsage["text"] = "Contact {} updated successfully".format(new_name)
         else:
             self.messsage["text"] = cte.ERR_MISSING_PARAMS
             
@@ -246,11 +248,13 @@ class Agenda:
         for element in records:
             self.tree.delete(element)
         
-        query = cte.QUERY_GET
-        db_rows = self.run_query(query)
+        self.dataList.delete(0, self.dataList.size() - 1)
+
         # Filling data
-        for row in db_rows:
-            self.tree.insert("", 0, text = row[1], values = (row[2], row[3], row[4]))
+        for row in self.run_query(cte.QUERY_GET):
+            self.tree.insert("", 0, text = row[1], values = (row[2], row[3], row[4], row[0]))
+            self.dataList.insert(0, row[1])
+
             
     def verify_certificates(self):
         """
@@ -339,26 +343,13 @@ class Agenda:
         Auxiliar method to extract data from a table and return it in the form 
         of a list of lists
         """
-        out_data = list()
-        for row in cursor:
-            out_data.append(list())
-            row = row[1:] #do not store row id
-            for element in row:
-                out_data[-1].append(element)
-                
-        return out_data
+        return [ [ value for value in row[1:] ] for row in cursor ]
         
     def generate_new_params(self, name: str, counter: int)->list:
         """
         Generates a list of 'counter' (rows) elements, each one being a 4-element
         list containing random values. Auxiliar method for encrypt_on_close()
-        """
-        parameters = list()
-        for i in range(counter):
-            parameters.append(list())
-            for j in range(4):
-                parameters[i].append(os.urandom(16))
-        
+        """      
         if name == "salt_hmac":
             query_delete = cte.QUERY_DELETE_SALT_HMAC_STORE
             query_insert = cte.QUERY_INSERT_SALT_HMAC_STORE
@@ -367,9 +358,11 @@ class Agenda:
             query_insert = cte.QUERY_INSERT_IVSTORE
         
         self.run_query(query_delete)
-        for i in parameters:
-            self.run_query(query_insert, i)
-        
+
+        parameters = [ [os.urandom(16) for _ in range(4)] for _ in range(counter) ]
+        for row in parameters:
+            self.run_query(query_insert, row)
+
         return parameters
 
     def decrypt_on_open(self):
@@ -397,51 +390,48 @@ class Agenda:
         hmac_data =    self.extract_from_table(db_hmacstore)
 
         # Create a list to UPDATE agenda information (substitutes encrypted for decrypted data)
-        param_list = list()
+        update_params = []
         # Get the stored encrypted contacts
         db_rows = self.run_query(cte.QUERY_GET)
-        # Iterator to traverse HMAC array
-        contador = 0
-        for row in db_rows:
+        
+        for irow, row in enumerate(db_rows):
             # Store encrypted data and decrypted data separatedly (enc_data and dec_data)
             # in order to perform an update on the database
-            dec_data = list()
-            enc_data = list()
-            row = row[1:] # do not store row id
+            enc_data = list(row[1:])
+            dec_data = []
+            id = row[0]
             
-            for element in row:           
-                enc_data.append(element)
-                # Verify the corresponding HMAC on every element
+            for icol, element in enumerate(row[1:]):  # do not store row id
+                # Verify HMAC on every element
                 try:
-                    self.crypto.verify_hmac( salt_hmac_store[contador//4][contador%4], 
+                    self.crypto.verify_hmac( salt_hmac_store[irow][icol], 
                                              bytes(element,"latin-1"), 
-                                             hmac_data[contador//4][contador%4] 
+                                             hmac_data[irow][icol] 
                                             )
-                    # Data element is authenticated, now decrypt it
-                    dec_data.append( self.crypto.symetric_decrypter( self.session_key, 
-                                                                     base64.b64decode(element), 
-                                                                     ivstore[contador//4][contador%4] 
-                                                                    ).decode('latin-1') )                    
-                except:
+        
+                except crypterrors.InvalidSignature:
                     # If it isn't verified, display a warning but don't stop working
                     self.messsage["text"] = cte.ERR_DATA_NOT_VERIFIED
                     # Do not decrypt non-authenticated data, just display it as it is to warn user
                     dec_data.append(element)
 
-                # Update HMAC list iterator
-                contador += 1 
-                   
-            # For each row, add row data to the list of parameters
-            param_list.append( (dec_data[0], dec_data[1],
-                                dec_data[2], dec_data[3],
-                                enc_data[0], enc_data[1], 
-                                enc_data[2], enc_data[3]) )
+                except crypterrors.AlreadyFinalized or ValueError or TypeError:
+                    self.messsage["text"] = cte.ERR_FATAL_DECRYPT
+                    dec_data.append(element)
+
+                # Data element is authenticated, now decrypt it
+                dec_data.append( self.crypto.symetric_decrypter( self.session_key, 
+                                                                    base64.b64decode(element), 
+                                                                    ivstore[irow][icol] 
+                                                                ).decode('latin-1') )
+
+            update_params.append( dec_data + [id]) # + enc_data )
                                 
         # UPDATE database by substituting encrypted data with decrypted data
         # Note: it is mandatory to exhaust db_rows before performing this query: db_rows is a cursor
         #       pointing to the database, so the base is locked while db_rows is not totally read
-        for i in range(len(param_list)):
-            self.run_query(cte.QUERY_UPDATE, param_list[i])
+        for row in update_params:
+            self.run_query(cte.QUERY_UPDATE, row)
 
         # Once contents are updated in the table, load the information in the app
         self.get_contacts()
@@ -450,13 +440,10 @@ class Agenda:
         """
         Encrypts database right before closing the app
         """
-        
         # Uptade table cryptostore with a new random salt for PBKDF2HMAC
         self.run_query(cte.QUERY_DELETE_CRYPTO)
-        salt_pbk_new = list()
-        salt_pbk_new.append([os.urandom(16)])
-        for i in salt_pbk_new:
-            self.run_query(cte.QUERT_INSERT_CRYPTO, i)
+        salt_pbk_new = [[os.urandom(16)]]
+        self.run_query(cte.QUERT_INSERT_CRYPTO, salt_pbk_new[0])
         
         self.session_key = self.crypto.pbkdf2hmac(self.introduced_pw, salt_pbk_new[0][0])
 
@@ -477,13 +464,16 @@ class Agenda:
         param_hmac = list()
         contador = 0
         db_rows = self.run_query(cte.QUERY_GET)
+
         for row in db_rows:
             plain_data = list()
             cipher_data = list()
             hmac_data = list()
+            id = row[0]
             row = row[1:] # do not store row id
             
             for element in row:
+                #print(element, parameters_ivstore[contador//4][contador%4])
                 # Store both plain data and encrypted data in orden to perform an update later
                 plain_data.append(element)
                 cipher_data.append( self.crypto.symetric_cipher(self.session_key, element, parameters_ivstore[contador//4][contador%4]))
@@ -495,10 +485,7 @@ class Agenda:
                           base64.b64encode( cipher_data[1] ).decode("ascii"), 
                           base64.b64encode( cipher_data[2] ).decode("ascii"), 
                           base64.b64encode( cipher_data[3] ).decode("ascii"), 
-                          plain_data[0],
-                          plain_data[1],
-                          plain_data[2], 
-                          plain_data[3]
+                          id,
                         )
             
             # HMAC the parameters

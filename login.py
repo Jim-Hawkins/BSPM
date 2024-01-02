@@ -1,14 +1,8 @@
 import base64
-import datetime
 import json
 import os
-import sqlite3
-import constants
 
-from cryptography.hazmat.primitives.ciphers.modes import ECB
-from tkinter import ttk
 from tkinter import *
-from typing import Container
 from crypto import Cryptograpy
 from full_agenda import Agenda
 
