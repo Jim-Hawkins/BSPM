@@ -8,7 +8,7 @@ import cryptography.exceptions as crypterrors
 import constants as cte
 import tkinter
 
-from tkinter import CENTER, E, END, W, Button, Entry, Label, LabelFrame, Listbox, StringVar, Toplevel, Variable, ttk
+from tkinter import CENTER, E, END, W, Button, Entry, Label, LabelFrame, Listbox, Menu, PhotoImage, StringVar, Toplevel, Variable, ttk
 from crypto import Cryptograpy
 
 #[------Agenda------]
@@ -47,6 +47,14 @@ class Agenda:
         self.log()
 
         #[--------Creating a Frame Containter for the Agenda--------]
+        self.menu_icons = {
+                                "file": PhotoImage(file="icons/file.png"),
+                                "cross": PhotoImage(file="icons/cross.png")
+                            }
+        self.menu = Menu(self.wind)
+        self.wind.config(menu=self.menu)
+        self.menu.add_command(command=lambda : print("hola"), image=self.menu_icons["file"])
+        self.menu.add_command(command=lambda : print("equis"), image=self.menu_icons["cross"])
 
         frame = LabelFrame(self.wind, text = 'Register a new contact')
         frame.grid(row = 0, column = 0, columnspan = 3, pady = 20)
